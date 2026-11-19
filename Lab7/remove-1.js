@@ -10,7 +10,7 @@ const nums = [1, 2, 3, 4, 5, 6, 7];
 removeElement(nums, 5);
 console.log(nums);
 
-const cities = ['Kiev', 'Beijing', 'Lima', 'Saratov'];
-removeElement(cities, 'Lima');
+const cities = ['Kiev', 'Beijing', 'Zhytomyr', 'Saratov'];
+removeElement(cities, 'Zhytomyr');
 removeElement(cities, 'Berlin');
 console.log(cities);

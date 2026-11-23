@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flappy Pony</title>
+<style>
+:root{--bg:#f3eefc;--fg:#2b1b4a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1430;--fg:#efe6ff}}
+:root[data-theme="dark"]{--bg:#1b1430;--fg:#efe6ff}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+canvas{max-width:100%;max-height:calc(100% - 28px);aspect-ratio:480/800;height:auto;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);cursor:pointer}
+p{margin:6px 0 0;font-size:13px;opacity:.7}
+</style>
+</head>
+<body>
+<canvas id="c" width="480" height="800"></canvas>
+<p>Пробел, клик или тап — взмах крыльев</p>
+<script>
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+const W=480,H=800,GROUND=720,PX=120,SPEED=200,GAP=190;
+const COLORS=['#b48ae0','#6fd3c0','#f29ac4','#f2c86f'];
+let state='ready',score=0,best=0,y,vy,wing,t=0,pipes,spawn,clouds,gx=0,canRestart=false,last=0;
+try{best=+localStorage.getItem('flappyPonyBest')||0}catch(e){}
+function reset(){y=380;vy=0;wing=0;pipes=[];spawn=0;score=0;state='ready';
+ clouds=Array.from({length:5},()=>({x:Math.random()*560,y:60+Math.random()*400}))}
+function flap(){
+ if(state==='ready'){state='play';addPipe()}
+ if(state==='play'){vy=-440;wing=.18}
+ else if(state==='over'&&canRestart)reset()}
+function addPipe(){pipes.push({x:560,c:230+Math.random()*270,col:COLORS[Math.random()*4|0],s:false})}
+function die(){
+ state='over';vy=-200;canRestart=false;setTimeout(()=>canRestart=true,600);
+ if(score>best){best=score;try{localStorage.setItem('flappyPonyBest',best)}catch(e){}}}
+function update(dt){
+ t+=dt;wing=Math.max(wing-dt,0);
+ clouds.forEach(c=>{c.x-=25*dt;if(c.x<-120)c.x=600});
+ if(state!=='over')gx=(gx+SPEED*dt)%70;
+ if(state==='ready'){y=380+Math.sin(t*4)*8;return}
+ vy=Math.min(vy+1500*dt,750);y+=vy*dt;
+ if(y<16){y=16;vy=Math.max(vy,0)}
+ if(y>=706){y=706;vy=0;if(state==='play')die()}
+ if(state!=='play')return;
+ spawn+=dt;if(spawn>=1.6){spawn=0;addPipe()}
+ for(const p of pipes){
+  p.x-=SPEED*dt;
+  if(!p.s&&p.x<PX){p.s=true;score++}
+  const dx=Math.abs(p.x-PX);
+  if(dx<36+14){ // горизонтальное пересечение колонны (ширина 72)
+   const top=p.c-GAP/2,bot=p.c+GAP/2;
+   if(y-14<top||y+14>bot){die();break}}}
+ pipes=pipes.filter(p=>p.x>-100)}
+function rect(x,yy,w,h,c){g.fillStyle=c;g.fillRect(x,yy,w,h)}
+function drawPony(){
+ g.save();g.translate(PX,y);
+ const rot=state==='over'?80:Math.max(-25,Math.min(85,vy*.09));
+ g.rotate(rot*Math.PI/180);
+ const B='#7ec8e3',P='#e86fb0';
+ rect(-32,-4,14,16,P);rect(-20,-12,36,22,B);rect(8,-22,18,18,B);
+ rect(4,-26,10,6,P);rect(0,-20,8,6,'#f7d86a');rect(-2,-14,8,6,'#9a7be0');
+ rect(18,-17,4,4,'#222');
+ g.save();g.translate(4,-6);
+ const wr=state==='ready'?Math.sin(t*10)*.5:state==='over'?-.6:(wing>0?-.9:.3);
+ g.rotate(wr);rect(-20,-4,22,8,'#e8f6ff');g.restore();
+ g.restore()}
+function drawPipes(){
+ for(const p of pipes){
+  const top=p.c-GAP/2,bot=p.c+GAP/2,x=p.x-36;
+  rect(x,-10,72,top+10,p.col);rect(x,bot,72,GROUND-bot,p.col);
+  rect(x+8,-10,10,top+10,'rgba(255,255,255,.25)');rect(x+8,bot,10,GROUND-bot,'rgba(255,255,255,.25)');
+  g.fillStyle='rgba(0,0,0,.18)';g.fillRect(x-6,top-24,84,24);g.fillRect(x-6,bot,84,24)}}
+function text(s,yy,size){
+ g.font='bold '+size+'px system-ui,sans-serif';g.textAlign='center';
+ g.lineWidth=8;g.strokeStyle='#33194d';g.strokeText(s,W/2,yy);g.fillStyle='#fff';g.fillText(s,W/2,yy)}
+function draw(){
+ rect(0,0,W,H,'#8fd3ff');
+ g.fillStyle='rgba(255,255,255,.85)';
+ clouds.forEach(c=>{g.fillRect(c.x,c.y+12,96,22);g.fillRect(c.x+16,c.y,56,20);g.fillRect(c.x+50,c.y+4,40,16)});
+ drawPipes();
+ rect(0,GROUND,W,80,'#73c759');rect(0,GROUND,W,12,'#4d9940');
+ for(let i=-1;i<8;i++)rect(i*70-gx,750,40,8,'#59a447');
+ drawPony();
+ text(String(score),110,64);
+ if(state==='ready'){text('Тап, чтобы взлететь!',300,30);text('Рекорд: '+best,350,26)}
+ if(state==='over'){text('Игра окончена',290,38);text('Счёт: '+score,345,30);text('Рекорд: '+best,385,30);text('Тап — ещё раз',450,28)}}
+function loop(ts){
+ const dt=Math.min((ts-last)/1000||0,.05);last=ts;
+ update(dt);draw();requestAnimationFrame(loop)}
+addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyW'].includes(e.code)){e.preventDefault();if(!e.repeat)flap()}});
+cv.addEventListener('pointerdown',e=>{e.preventDefault();flap()});
+reset();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
